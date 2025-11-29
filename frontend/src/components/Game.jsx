@@ -1,0 +1,815 @@
+import { useEffect, useRef, useState } from 'react';
+import Board from './Board';
+import Chat from './Chat';
+import useGameStore from '../store/gameStore';
+
+const Game = () => {
+  const {
+    user,
+    logout,
+    game,
+    players,
+    myPlayer,
+    isMyTurn,
+    currentDiceRoll,
+    canRollAgain,
+    gameLog,
+    properties,
+    landedSpace,
+    purchasedProperty,
+    joinGame,
+    rollDice,
+    buyProperty,
+    endTurn
+  } = useGameStore();
+
+  // Get current turn player
+  const currentTurnPlayer = players.find(p => p.user_id === game?.current_turn_user_id);
+
+  const hasJoinedRef = useRef(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  const [showLandedPopup, setShowLandedPopup] = useState(false);
+  const [showPurchasePopup, setShowPurchasePopup] = useState(false);
+
+  useEffect(() => {
+    // Auto-join game when component mounts (only once)
+    if (!hasJoinedRef.current && user) {
+      hasJoinedRef.current = true;
+      joinGame();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Show popup when landedSpace changes
+  useEffect(() => {
+    if (landedSpace) {
+      setShowLandedPopup(true);
+      // Auto-hide after 5 seconds
+      const timer = setTimeout(() => {
+        setShowLandedPopup(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [landedSpace]);
+
+  // Show popup when property is purchased
+  useEffect(() => {
+    if (purchasedProperty) {
+      setShowPurchasePopup(true);
+      // Auto-hide after 4 seconds
+      const timer = setTimeout(() => {
+        setShowPurchasePopup(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [purchasedProperty]);
+
+  const handleRollDice = async () => {
+    try {
+      await rollDice();
+    } catch (error) {
+      console.error('Failed to roll dice:', error);
+    }
+  };
+
+  const handleBuyProperty = async () => {
+    if (!myPlayer) return;
+    try {
+      // Get property at current position
+      const currentProperty = properties.find(
+        p => p.position_on_board === myPlayer.position
+      );
+      if (currentProperty) {
+        await buyProperty(currentProperty.id);
+      }
+    } catch (error) {
+      console.error('Failed to buy property:', error);
+    }
+  };
+
+  const handleEndTurn = async () => {
+    try {
+      await endTurn();
+    } catch (error) {
+      console.error('Failed to end turn:', error);
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      {/* Header */}
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <h1 style={styles.headerTitle}>MONOPOLY</h1>
+          <span style={styles.headerSubtitle}>Live Game</span>
+        </div>
+        <div style={styles.headerRight}>
+          <div style={styles.userInfo}>
+            <span style={styles.username}>{user?.username}</span>
+            {myPlayer && (
+              <div style={styles.moneyBadge}>
+                <span style={styles.moneyIcon}>💰</span>
+                <span style={styles.moneyAmount}>${myPlayer.money.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+          {/* Show whose turn it is */}
+          {currentTurnPlayer && (
+            <div style={{
+              ...styles.turnIndicator,
+              ...(isMyTurn ? {} : styles.turnIndicatorOther)
+            }} className={isMyTurn ? "pulse" : ""}>
+              {isMyTurn ? '⭐ YOUR TURN' : `${currentTurnPlayer.username}'s Turn`}
+            </div>
+          )}
+          <button onClick={logout} className="outline" style={styles.logoutButton}>
+            Logout
+          </button>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div style={styles.mainContent}>
+        {/* Sidebar */}
+        <aside style={styles.sidebar}>
+          {/* Players Section */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <span style={styles.sectionIcon}>👥</span>
+              Players
+            </h2>
+            <div style={styles.playersList}>
+              {players.map((player) => (
+                <div
+                  key={player.id}
+                  style={{
+                    ...styles.playerCard,
+                    ...(player.user_id === user.id ? styles.playerCardActive : {}),
+                    ...(player.is_bankrupt ? styles.playerCardBankrupt : {}),
+                    cursor: 'pointer'
+                  }}
+                  className="fade-in"
+                  onClick={() => setSelectedPlayerId(selectedPlayerId === player.id ? null : player.id)}
+                >
+                  <div style={styles.playerHeader}>
+                    <span style={styles.playerToken}>{getTokenEmoji(player.token_type)}</span>
+                    <div style={styles.playerInfo}>
+                      <div style={styles.playerName}>{player.username}</div>
+                      <div style={styles.playerRole}>{player.token_type}</div>
+                    </div>
+                  </div>
+                  <div style={styles.playerMoney}>${player.money.toLocaleString()}</div>
+                  {player.is_in_jail && (
+                    <div style={styles.jailBadge}>🔒 In Jail</div>
+                  )}
+                  {player.is_bankrupt && (
+                    <div style={styles.bankruptBadge}>💔 BANKRUPT</div>
+                  )}
+
+                  {/* Player Properties - Show when selected */}
+                  {selectedPlayerId === player.id && (
+                    <div style={styles.propertiesSection}>
+                      <div style={styles.propertiesHeader}>
+                        🏠 Properties ({properties.filter(p => p.owner_id === player.id).length})
+                      </div>
+                      <div style={styles.propertiesList}>
+                        {properties
+                          .filter(p => p.owner_id === player.id)
+                          .map(property => (
+                            <div key={property.id} style={styles.propertyItem}>
+                              <div style={styles.propertyName}>{property.name}</div>
+                              <div style={styles.propertyDetails}>
+                                <span style={styles.propertyPrice}>${property.purchase_price}</span>
+                                {property.house_count > 0 && (
+                                  <span style={styles.propertyHouses}>
+                                    {property.house_count === 5 ? '🏨' : `${'🏠'.repeat(property.house_count)}`}
+                                  </span>
+                                )}
+                                {property.is_mortgaged && (
+                                  <span style={styles.mortgagedBadge}>💤</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        {properties.filter(p => p.owner_id === player.id).length === 0 && (
+                          <div style={styles.noProperties}>No properties owned</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions Section */}
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>
+              <span style={styles.sectionIcon}>🎮</span>
+              Actions
+            </h2>
+            <div style={styles.actionButtons}>
+              <button
+                onClick={handleRollDice}
+                disabled={!isMyTurn || !canRollAgain}
+                style={styles.actionButton}
+                title={!canRollAgain ? "Already rolled this turn" : ""}
+              >
+                <span style={styles.actionIcon}>🎲</span>
+                Roll Dice
+              </button>
+
+              <button
+                onClick={handleBuyProperty}
+                disabled={!isMyTurn}
+                className="secondary"
+                style={styles.actionButton}
+              >
+                <span style={styles.actionIcon}>🏠</span>
+                Buy Property
+              </button>
+
+              <button
+                onClick={handleEndTurn}
+                disabled={!isMyTurn}
+                className="outline"
+                style={styles.actionButton}
+              >
+                <span style={styles.actionIcon}>⏭</span>
+                End Turn
+              </button>
+            </div>
+          </div>
+
+          {/* Dice Display */}
+          {currentDiceRoll && (
+            <div style={styles.section}>
+              <h3 style={styles.sectionTitle}>
+                <span style={styles.sectionIcon}>🎲</span>
+                Last Roll
+              </h3>
+              <div style={styles.diceDisplay} className="fade-in">
+                <div style={styles.diceContainer}>
+                  <div style={styles.die}>{currentDiceRoll.die1}</div>
+                  <div style={styles.die}>{currentDiceRoll.die2}</div>
+                </div>
+                <div style={styles.diceTotal}>Total: {currentDiceRoll.total}</div>
+                {currentDiceRoll.isDoubles && (
+                  <div style={styles.doublesIndicator}>⚡ DOUBLES!</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Game Log */}
+          <div style={styles.section}>
+            <h3 style={styles.sectionTitle}>
+              <span style={styles.sectionIcon}>📜</span>
+              Game Log
+            </h3>
+            <div style={styles.gameLog}>
+              {gameLog.slice(-10).reverse().map((log, idx) => (
+                <div key={idx} style={styles.logEntry} className="slide-in">
+                  {log.message}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* 3D Board */}
+        <main style={styles.boardContainer}>
+          <Board />
+        </main>
+      </div>
+
+      {/* Chat */}
+      <Chat />
+
+      {/* Landed Space Popup */}
+      {showLandedPopup && landedSpace && (
+        <div style={styles.popupOverlay} onClick={() => setShowLandedPopup(false)}>
+          <div style={styles.popup} className="fade-in" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowLandedPopup(false)}
+              style={styles.closeButton}
+            >
+              ✕
+            </button>
+            <div style={styles.popupHeader}>
+              <span style={styles.popupIcon}>📍</span>
+              <h2 style={styles.popupTitle}>You Landed On</h2>
+            </div>
+            {landedSpace.property ? (
+              <div style={styles.popupContent}>
+                <div style={styles.popupPropertyName}>{landedSpace.property.name}</div>
+                {landedSpace.property.color_group && (
+                  <div style={styles.popupPropertyType}>
+                    {landedSpace.property.color_group} Property
+                  </div>
+                )}
+                <div style={styles.popupDetails}>
+                  {landedSpace.property.purchase_price && (
+                    <div style={styles.popupDetailRow}>
+                      <span>Price:</span>
+                      <span style={styles.popupDetailValue}>${landedSpace.property.purchase_price.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {landedSpace.property.rent_base !== undefined && (
+                    <div style={styles.popupDetailRow}>
+                      <span>Rent:</span>
+                      <span style={styles.popupDetailValue}>${landedSpace.property.rent_base.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {landedSpace.property.owner_id && (
+                    <div style={styles.popupDetailRow}>
+                      <span>Owner:</span>
+                      <span style={styles.popupDetailValue}>
+                        {players.find(p => p.id === landedSpace.property.owner_id)?.username || 'Unknown'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={styles.popupContent}>
+                <div style={styles.popupPropertyName}>{getSpecialSpaceName(landedSpace.position)}</div>
+                <div style={styles.popupPropertyType}>Special Space</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Property Purchased Popup */}
+      {showPurchasePopup && purchasedProperty && (
+        <div style={styles.popupOverlay} onClick={() => setShowPurchasePopup(false)}>
+          <div style={styles.popup} className="fade-in" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowPurchasePopup(false)}
+              style={styles.closeButton}
+            >
+              ✕
+            </button>
+            <div style={styles.popupHeader}>
+              <span style={styles.popupIcon}>🏠</span>
+              <h2 style={styles.popupTitle}>Property Purchased!</h2>
+            </div>
+            <div style={styles.popupContent}>
+              <div style={styles.popupPropertyName}>{purchasedProperty.property.name}</div>
+              <div style={styles.popupPropertyType}>
+                Purchased by {purchasedProperty.player.username}
+              </div>
+              <div style={styles.popupDetails}>
+                <div style={styles.popupDetailRow}>
+                  <span>Price Paid:</span>
+                  <span style={styles.popupDetailValue}>${purchasedProperty.property.purchase_price?.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+function getSpecialSpaceName(position) {
+  const specialSpaces = {
+    0: 'GO - Collect $200',
+    2: 'Community Chest',
+    4: 'Income Tax',
+    7: 'Chance',
+    10: 'Just Visiting Jail',
+    17: 'Community Chest',
+    20: 'Free Parking',
+    22: 'Chance',
+    30: 'Go To Jail',
+    33: 'Community Chest',
+    36: 'Chance',
+    38: 'Luxury Tax',
+  };
+  return specialSpaces[position] || `Space ${position}`;
+}
+
+function getTokenEmoji(tokenType) {
+  const tokens = {
+    car: '🚗',
+    hat: '🎩',
+    dog: '🐕',
+    ship: '🚢',
+    thimble: '🎲',
+  };
+  return tokens[tokenType] || '🎮';
+}
+
+const styles = {
+  container: {
+    height: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
+    background: 'var(--bg-primary)',
+  },
+  header: {
+    background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%)',
+    padding: '0.75rem 2rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '2px solid var(--monopoly-gold)',
+    boxShadow: 'var(--shadow-lg)',
+    flexShrink: 0,
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '1rem',
+  },
+  headerTitle: {
+    fontSize: '1.75rem',
+    margin: 0,
+    background: 'linear-gradient(135deg, var(--monopoly-gold) 0%, var(--monopoly-dark-gold) 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  },
+  headerSubtitle: {
+    color: 'var(--monopoly-red)',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  userInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  username: {
+    color: 'var(--text-primary)',
+    fontWeight: '600',
+  },
+  moneyBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    background: 'linear-gradient(135deg, var(--monopoly-green) 0%, var(--monopoly-dark-green) 100%)',
+    padding: '0.5rem 1rem',
+    borderRadius: 'var(--radius-lg)',
+    boxShadow: 'var(--shadow-sm)',
+  },
+  moneyIcon: {
+    fontSize: '1.25rem',
+  },
+  moneyAmount: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: '1.1rem',
+  },
+  turnIndicator: {
+    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+    color: '#1a1a1a',
+    padding: '0.75rem 1.5rem',
+    borderRadius: 'var(--radius-lg)',
+    fontWeight: '800',
+    fontSize: '0.95rem',
+    letterSpacing: '0.1em',
+    boxShadow: '0 0 20px rgba(255,215,0,0.5)',
+  },
+  turnIndicatorOther: {
+    background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%)',
+    color: 'var(--text-primary)',
+    boxShadow: '0 0 10px rgba(212,175,55,0.3)',
+    border: '2px solid var(--monopoly-gold)',
+  },
+  logoutButton: {
+    padding: '0.5rem 1.25rem',
+  },
+  mainContent: {
+    flex: 1,
+    display: 'flex',
+    overflow: 'hidden',
+  },
+  sidebar: {
+    width: '300px',
+    background: 'var(--bg-secondary)',
+    padding: '1rem',
+    overflowY: 'auto',
+    borderRight: '2px solid var(--border-color)',
+    flexShrink: 0,
+  },
+  section: {
+    marginBottom: '1.5rem',
+  },
+  sectionTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    color: 'var(--monopoly-gold)',
+    marginBottom: '1rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  sectionIcon: {
+    fontSize: '1.5rem',
+  },
+  playersList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  playerCard: {
+    background: 'var(--bg-card)',
+    padding: '1rem',
+    borderRadius: 'var(--radius-md)',
+    border: '2px solid transparent',
+    transition: 'all 0.3s ease',
+  },
+  playerCardActive: {
+    border: '2px solid var(--monopoly-gold)',
+    background: 'linear-gradient(135deg, rgba(212,175,55,0.1) 0%, rgba(184,147,43,0.05) 100%)',
+    boxShadow: '0 0 15px rgba(212,175,55,0.3)',
+  },
+  playerCardBankrupt: {
+    opacity: 0.4,
+    filter: 'grayscale(1)',
+  },
+  playerHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    marginBottom: '0.5rem',
+  },
+  playerToken: {
+    fontSize: '2rem',
+  },
+  playerInfo: {
+    flex: 1,
+  },
+  playerName: {
+    fontWeight: '700',
+    color: 'var(--text-primary)',
+    fontSize: '1rem',
+  },
+  playerRole: {
+    fontSize: '0.8rem',
+    color: 'var(--text-muted)',
+    textTransform: 'capitalize',
+  },
+  playerMoney: {
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: 'var(--monopoly-gold)',
+    marginTop: '0.5rem',
+  },
+  jailBadge: {
+    marginTop: '0.5rem',
+    padding: '0.25rem 0.5rem',
+    background: 'rgba(227, 30, 36, 0.2)',
+    border: '1px solid var(--monopoly-red)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: '0.8rem',
+    color: '#FFB3B3',
+    display: 'inline-block',
+  },
+  bankruptBadge: {
+    marginTop: '0.5rem',
+    padding: '0.25rem 0.5rem',
+    background: 'rgba(100, 100, 100, 0.3)',
+    border: '1px solid #666',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: '0.8rem',
+    color: '#999',
+    display: 'inline-block',
+    fontWeight: '700',
+  },
+  actionButtons: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.75rem',
+  },
+  actionButton: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.5rem',
+  },
+  actionIcon: {
+    fontSize: '1.25rem',
+  },
+  diceDisplay: {
+    background: 'var(--bg-card)',
+    padding: '1rem',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border-color)',
+  },
+  diceContainer: {
+    display: 'flex',
+    gap: '1rem',
+    justifyContent: 'center',
+    marginBottom: '1rem',
+  },
+  die: {
+    width: '60px',
+    height: '60px',
+    background: 'linear-gradient(135deg, var(--monopoly-red) 0%, var(--monopoly-dark-red) 100%)',
+    color: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '2rem',
+    fontWeight: '700',
+    borderRadius: 'var(--radius-md)',
+    boxShadow: 'var(--shadow-md)',
+  },
+  diceTotal: {
+    textAlign: 'center',
+    color: 'var(--text-secondary)',
+    fontSize: '1rem',
+    fontWeight: '600',
+  },
+  doublesIndicator: {
+    textAlign: 'center',
+    color: 'var(--monopoly-gold)',
+    fontSize: '0.95rem',
+    fontWeight: '700',
+    marginTop: '0.5rem',
+  },
+  gameLog: {
+    background: 'var(--bg-card)',
+    padding: '0.75rem',
+    borderRadius: 'var(--radius-md)',
+    height: '150px',
+    overflowY: 'auto',
+    border: '1px solid var(--border-color)',
+  },
+  logEntry: {
+    color: 'var(--text-secondary)',
+    fontSize: '0.85rem',
+    marginBottom: '0.5rem',
+    paddingBottom: '0.5rem',
+    borderBottom: '1px solid rgba(255,255,255,0.1)',
+  },
+  boardContainer: {
+    flex: 1,
+    position: 'relative',
+    background: 'var(--bg-primary)',
+    minHeight: 0,
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  propertiesSection: {
+    marginTop: '0.75rem',
+    paddingTop: '0.75rem',
+    borderTop: '1px solid rgba(255,255,255,0.1)',
+  },
+  propertiesHeader: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: 'var(--monopoly-gold)',
+    marginBottom: '0.5rem',
+  },
+  propertiesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.5rem',
+    maxHeight: '200px',
+    overflowY: 'auto',
+  },
+  propertyItem: {
+    background: 'rgba(255,255,255,0.05)',
+    padding: '0.5rem',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  propertyName: {
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    color: 'var(--text-primary)',
+    marginBottom: '0.25rem',
+  },
+  propertyDetails: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    fontSize: '0.75rem',
+  },
+  propertyPrice: {
+    color: 'var(--monopoly-gold)',
+    fontWeight: '600',
+  },
+  propertyHouses: {
+    fontSize: '0.9rem',
+  },
+  mortgagedBadge: {
+    fontSize: '0.9rem',
+  },
+  noProperties: {
+    fontSize: '0.85rem',
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: '0.5rem',
+  },
+  popupOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    zIndex: 1000,
+    paddingTop: '2rem',
+  },
+  popup: {
+    background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%)',
+    border: '3px solid var(--monopoly-gold)',
+    borderRadius: 'var(--radius-lg)',
+    padding: '1.5rem',
+    minWidth: '400px',
+    maxWidth: '500px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: '1rem',
+    right: '1rem',
+    background: 'rgba(255,255,255,0.1)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    color: 'var(--text-primary)',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    fontSize: '1.25rem',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.2s ease',
+  },
+  popupHeader: {
+    textAlign: 'center',
+    marginBottom: '1.5rem',
+  },
+  popupIcon: {
+    fontSize: '3rem',
+    display: 'block',
+    marginBottom: '0.5rem',
+  },
+  popupTitle: {
+    fontSize: '1.5rem',
+    fontWeight: '700',
+    color: 'var(--monopoly-gold)',
+    margin: 0,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+  },
+  popupContent: {
+    textAlign: 'center',
+  },
+  popupPropertyName: {
+    fontSize: '1.75rem',
+    fontWeight: '700',
+    color: 'var(--text-primary)',
+    marginBottom: '0.5rem',
+  },
+  popupPropertyType: {
+    fontSize: '1rem',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: '1.5rem',
+  },
+  popupDetails: {
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: 'var(--radius-md)',
+    padding: '1rem',
+    border: '1px solid rgba(255,255,255,0.1)',
+  },
+  popupDetailRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '0.75rem',
+    fontSize: '1rem',
+    color: 'var(--text-secondary)',
+  },
+  popupDetailValue: {
+    fontWeight: '700',
+    color: 'var(--monopoly-gold)',
+  },
+};
+
+export default Game;

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node scripts/hashPasswords.js:*)",
+      "Bash(node scripts/testDb.js:*)",
+      "Bash(node scripts/seedProperties.js:*)",
+      "Bash(npm start)",
+      "Bash(npm run dev:*)",
+      "Bash(node scripts/testGameFlow.js:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(node scripts/resetGame.js:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(node -e:*)",
+      "Bash(node:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
