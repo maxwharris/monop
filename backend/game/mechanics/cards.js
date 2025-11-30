@@ -7,7 +7,7 @@ const { sendToJail } = require('./jail');
 const { updatePlayer } = require('../../db/queries');
 
 const CHANCE_CARDS = [
-  { type: 'move', text: 'Advance to GO (Collect $200)', action: 'go', position: 0 },
+  { type: 'move', text: 'Advance to GO (Collect $200)', action: 'position', position: 0 },
   { type: 'move', text: 'Advance to Illinois Ave', action: 'position', position: 24 },
   { type: 'move', text: 'Advance to St. Charles Place', action: 'position', position: 11 },
   { type: 'move', text: 'Advance token to nearest Utility', action: 'nearest_utility' },
@@ -17,7 +17,7 @@ const CHANCE_CARDS = [
   { type: 'jail_free', text: 'Get Out of Jail Free' },
   { type: 'money', text: 'Bank pays you dividend of $50', amount: 50 },
   { type: 'money', text: 'Pay poor tax of $15', amount: -15 },
-  { type: 'money', text: 'Take a trip to Reading Railroad', action: 'position', position: 5 },
+  { type: 'move', text: 'Take a trip to Reading Railroad', action: 'position', position: 5 },
   { type: 'money', text: 'You have been elected Chairman of the Board. Pay each player $50', amount: -50, toAll: true },
   { type: 'money', text: 'Your building loan matures. Collect $150', amount: 150 },
   { type: 'money', text: 'You have won a crossword competition. Collect $100', amount: 100 },
@@ -26,7 +26,7 @@ const CHANCE_CARDS = [
 ];
 
 const COMMUNITY_CHEST_CARDS = [
-  { type: 'money', text: 'Advance to GO (Collect $200)', amount: 200, position: 0 },
+  { type: 'move', text: 'Advance to GO (Collect $200)', action: 'position', position: 0 },
   { type: 'money', text: 'Bank error in your favor. Collect $200', amount: 200 },
   { type: 'money', text: 'Doctor\'s fees. Pay $50', amount: -50 },
   { type: 'money', text: 'From sale of stock you get $50', amount: 50 },
@@ -96,16 +96,19 @@ async function drawCard(player, deckType, allPlayers, allProperties) {
       break;
 
     case 'move':
-      if (card.action === 'go') {
-        const spacesToGo = card.position >= player.position
-          ? card.position - player.position
-          : 40 - player.position + card.position;
-        const moveResult = await movePlayer(player, spacesToGo);
-        result.effects.push({ type: 'moved', ...moveResult });
-      } else if (card.action === 'position') {
-        const spacesToMove = card.position >= player.position
-          ? card.position - player.position
-          : 40 - player.position + card.position;
+      if (card.action === 'position') {
+        // Calculate spaces to move forward to reach target position
+        let spacesToMove;
+        if (card.position > player.position) {
+          // Target is ahead on the board
+          spacesToMove = card.position - player.position;
+        } else if (card.position < player.position) {
+          // Target is behind, need to go around the board
+          spacesToMove = 40 - player.position + card.position;
+        } else {
+          // Already at target position, go around the full board
+          spacesToMove = 40;
+        }
         const moveResult = await movePlayer(player, spacesToMove);
         result.effects.push({ type: 'moved', ...moveResult });
       } else if (card.action === 'nearest_railroad') {

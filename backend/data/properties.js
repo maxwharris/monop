@@ -1,4 +1,5 @@
 // Complete Monopoly board data (40 spaces)
+// Property values taken from official Monopoly game
 module.exports = [
   // Corner: GO
   { position: 0, name: 'GO', type: 'special' },
@@ -10,7 +11,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'brown',
     price: 60,
-    rent: [2, 10, 30, 90, 160, 250],
+    rent: [2, 4, 10, 30, 90, 160, 250], // base, with_set, 1H, 2H, 3H, 4H, hotel
     houseCost: 50,
     mortgageValue: 30
   },
@@ -24,7 +25,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'brown',
     price: 60,
-    rent: [4, 20, 60, 180, 320, 450],
+    rent: [4, 8, 20, 60, 180, 320, 450],
     houseCost: 50,
     mortgageValue: 30
   },
@@ -39,7 +40,7 @@ module.exports = [
     type: 'railroad',
     colorGroup: 'railroad',
     price: 200,
-    rent: [25, 50, 100, 200],
+    rent: [25, 50, 100, 200], // 1RR, 2RR, 3RR, 4RR
     houseCost: null,
     mortgageValue: 100
   },
@@ -51,7 +52,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'lightblue',
     price: 100,
-    rent: [6, 30, 90, 270, 400, 550],
+    rent: [6, 12, 30, 90, 270, 400, 550],
     houseCost: 50,
     mortgageValue: 50
   },
@@ -65,7 +66,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'lightblue',
     price: 100,
-    rent: [6, 30, 90, 270, 400, 550],
+    rent: [6, 12, 30, 90, 270, 400, 550],
     houseCost: 50,
     mortgageValue: 50
   },
@@ -76,7 +77,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'lightblue',
     price: 120,
-    rent: [8, 40, 100, 300, 450, 600],
+    rent: [8, 16, 40, 100, 300, 450, 600],
     houseCost: 50,
     mortgageValue: 60
   },
@@ -91,7 +92,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'pink',
     price: 140,
-    rent: [10, 50, 150, 450, 625, 750],
+    rent: [10, 20, 50, 150, 450, 625, 750],
     houseCost: 100,
     mortgageValue: 70
   },
@@ -114,7 +115,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'pink',
     price: 140,
-    rent: [10, 50, 150, 450, 625, 750],
+    rent: [10, 20, 50, 150, 450, 625, 750],
     houseCost: 100,
     mortgageValue: 70
   },
@@ -125,7 +126,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'pink',
     price: 160,
-    rent: [12, 60, 180, 500, 700, 900],
+    rent: [12, 24, 60, 180, 500, 700, 900],
     houseCost: 100,
     mortgageValue: 80
   },
@@ -149,7 +150,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'orange',
     price: 180,
-    rent: [14, 70, 200, 550, 750, 950],
+    rent: [14, 28, 70, 200, 550, 750, 950],
     houseCost: 100,
     mortgageValue: 90
   },
@@ -163,7 +164,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'orange',
     price: 180,
-    rent: [14, 70, 200, 550, 750, 950],
+    rent: [14, 28, 70, 200, 550, 750, 950],
     houseCost: 100,
     mortgageValue: 90
   },
@@ -174,7 +175,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'orange',
     price: 200,
-    rent: [16, 80, 220, 600, 800, 1000],
+    rent: [16, 32, 80, 220, 600, 800, 1000],
     houseCost: 100,
     mortgageValue: 100
   },
@@ -189,7 +190,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'red',
     price: 220,
-    rent: [18, 90, 250, 700, 875, 1050],
+    rent: [18, 36, 90, 250, 700, 875, 1050],
     houseCost: 150,
     mortgageValue: 110
   },
@@ -203,7 +204,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'red',
     price: 220,
-    rent: [18, 90, 250, 700, 875, 1050],
+    rent: [18, 36, 90, 250, 700, 875, 1050],
     houseCost: 150,
     mortgageValue: 110
   },
@@ -214,7 +215,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'red',
     price: 240,
-    rent: [20, 100, 300, 750, 925, 1100],
+    rent: [20, 40, 100, 300, 750, 925, 1100],
     houseCost: 150,
     mortgageValue: 120
   },
@@ -238,7 +239,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'yellow',
     price: 260,
-    rent: [22, 110, 330, 800, 975, 1150],
+    rent: [22, 44, 110, 330, 800, 975, 1150],
     houseCost: 150,
     mortgageValue: 130
   },
@@ -249,7 +250,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'yellow',
     price: 260,
-    rent: [22, 110, 330, 800, 975, 1150],
+    rent: [22, 44, 110, 330, 800, 975, 1150],
     houseCost: 150,
     mortgageValue: 130
   },
@@ -272,7 +273,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'yellow',
     price: 280,
-    rent: [24, 120, 360, 850, 1025, 1200],
+    rent: [24, 48, 120, 360, 850, 1025, 1200],
     houseCost: 150,
     mortgageValue: 140
   },
@@ -287,7 +288,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'green',
     price: 300,
-    rent: [26, 130, 390, 900, 1100, 1275],
+    rent: [26, 52, 130, 390, 900, 1100, 1275],
     houseCost: 200,
     mortgageValue: 150
   },
@@ -298,7 +299,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'green',
     price: 300,
-    rent: [26, 130, 390, 900, 1100, 1275],
+    rent: [26, 52, 130, 390, 900, 1100, 1275],
     houseCost: 200,
     mortgageValue: 150
   },
@@ -312,7 +313,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'green',
     price: 320,
-    rent: [28, 150, 450, 1000, 1200, 1400],
+    rent: [28, 56, 150, 450, 1000, 1200, 1400],
     houseCost: 200,
     mortgageValue: 160
   },
@@ -339,7 +340,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'darkblue',
     price: 350,
-    rent: [35, 175, 500, 1100, 1300, 1500],
+    rent: [35, 70, 175, 500, 1100, 1300, 1500],
     houseCost: 200,
     mortgageValue: 175
   },
@@ -353,7 +354,7 @@ module.exports = [
     type: 'property',
     colorGroup: 'darkblue',
     price: 400,
-    rent: [50, 200, 600, 1400, 1700, 2000],
+    rent: [50, 100, 200, 600, 1400, 1700, 2000],
     houseCost: 200,
     mortgageValue: 200
   }

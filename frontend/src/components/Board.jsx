@@ -244,8 +244,8 @@ function PropertySpace({ property, position }) {
                 </div>
               )}
 
-              {/* Base Rent */}
-              {property.rent_base !== undefined && (
+              {/* Rent Information */}
+              {property.rent_base !== undefined && property.rent_values && Array.isArray(property.rent_values) && (
                 <div style={{ marginBottom: '0.5rem' }}>
                   <div style={{
                     fontSize: '12px',
@@ -254,17 +254,47 @@ function PropertySpace({ property, position }) {
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px'
                   }}>
-                    Rent:
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
-                    <span style={{ color: '#D0E9DC', fontSize: '12px' }}>Base:</span>
-                    <span style={{ fontWeight: 'bold' }}>{formatPrice(property.rent_base)}</span>
+                    {property.property_type === 'railroad' ? 'Rent (by number owned):' :
+                     property.property_type === 'utility' ? 'Rent (multiplier × dice):' :
+                     'Rent:'}
                   </div>
 
-                  {/* Rent with houses/hotel */}
-                  {property.rent_values && Array.isArray(property.rent_values) && property.rent_values.length > 0 && (
+                  {property.property_type === 'railroad' ? (
+                    // Railroad rent: 1 RR, 2 RRs, 3 RRs, 4 RRs
+                    property.rent_values.slice(0, 4).map((rent, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                        <span style={{ color: '#D0E9DC', fontSize: '12px' }}>
+                          {idx + 1} Railroad{idx > 0 ? 's' : ''}:
+                        </span>
+                        <span>{formatPrice(rent)}</span>
+                      </div>
+                    ))
+                  ) : property.property_type === 'utility' ? (
+                    // Utility rent: 4x or 10x
                     <>
-                      {property.rent_values.map((rent, idx) => (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                        <span style={{ color: '#D0E9DC', fontSize: '12px' }}>1 Utility:</span>
+                        <span>{property.rent_values[0]}× dice</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                        <span style={{ color: '#D0E9DC', fontSize: '12px' }}>Both Utilities:</span>
+                        <span>{property.rent_values[1]}× dice</span>
+                      </div>
+                    </>
+                  ) : (
+                    // Property rent: Base, With Set, 1-4 Houses, Hotel
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                        <span style={{ color: '#D0E9DC', fontSize: '12px' }}>Base:</span>
+                        <span style={{ fontWeight: 'bold' }}>{formatPrice(property.rent_base)}</span>
+                      </div>
+                      {property.rent_values.length > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                          <span style={{ color: '#D0E9DC', fontSize: '12px' }}>With Set:</span>
+                          <span>{formatPrice(property.rent_values[0])}</span>
+                        </div>
+                      )}
+                      {property.rent_values.slice(1, 6).map((rent, idx) => (
                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
                           <span style={{ color: '#D0E9DC', fontSize: '12px' }}>
                             {idx < 4 ? `${idx + 1} House${idx > 0 ? 's' : ''}:` : 'Hotel:'}
@@ -307,13 +337,23 @@ function PropertySpace({ property, position }) {
                 </span>
               </div>
 
-              {/* Houses/Hotel */}
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#D0E9DC' }}>Development:</span>
-                <span style={{ fontWeight: 'bold', color: property.house_count > 0 ? '#4CAF50' : '#999' }}>
-                  {property.house_count === 5 ? '🏨 Hotel' : property.house_count > 0 ? `🏠 ${property.house_count} House${property.house_count > 1 ? 's' : ''}` : 'None'}
-                </span>
-              </div>
+              {/* Houses/Hotel or Number Owned */}
+              {property.property_type === 'railroad' || property.property_type === 'utility' ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#D0E9DC' }}>Number Owned:</span>
+                  <span style={{ fontWeight: 'bold', color: '#999' }}>
+                    {/* This will be updated dynamically based on how many RR/utilities the owner has */}
+                    --
+                  </span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#D0E9DC' }}>Development:</span>
+                  <span style={{ fontWeight: 'bold', color: property.house_count > 0 ? '#4CAF50' : '#999' }}>
+                    {property.house_count === 5 ? '🏨 Hotel' : property.house_count > 0 ? `🏠 ${property.house_count} House${property.house_count > 1 ? 's' : ''}` : 'None'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </Html>
@@ -445,6 +485,21 @@ function SpecialSpace({ position, positionNumber }) {
               {spaceInfo.type === 'special' && 'Special Card'}
               {spaceInfo.type === 'tax' && 'Tax Space'}
             </div>
+            {spaceInfo.type === 'tax' && (
+              <div style={{
+                marginTop: '0.75rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid rgba(255,255,255,0.2)',
+                textAlign: 'center'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#D0E9DC' }}>Tax Amount:</span>
+                  <span style={{ fontWeight: 'bold', color: '#FFD700', fontSize: '15px' }}>
+                    {positionNumber === 4 ? '$200' : '$100'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </Html>
       )}

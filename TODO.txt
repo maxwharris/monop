@@ -1,0 +1,20 @@
+1. ✅ COMPLETED - Fixed all card actions (Advance to GO, Reading Railroad, Community Chest cards).
+
+2. ✅ COMPLETED - Movement logic verified and working correctly.
+
+3. ✅ COMPLETED - Jail is correctly set to 3 turns (turns 0, 1, 2, then must pay/use card on turn 3).
+
+4. ✅ COMPLETED - Property colors now shown in player property list with color bar indicator and color name.
+   ⚠️ NOTE: Hover to highlight on board and mortgage/buy houses options NOT implemented (requires complex state management).
+
+5. ✅ COMPLETED - Fixed rent display to show max 1 hotel (was showing multiple). All rent values verified against monopoly_purchasables.json.
+
+6. ✅ COMPLETED - Enhanced game log to show all money transactions with amounts:
+   - Passing GO: "$200 collected"
+   - Rent payments: "paid $X rent to [player] for [property]"
+   - Property purchases: "purchased [property] for $X"
+   - Card effects: "received/paid $X"
+   - Tax payments: "paid $X Income/Luxury Tax"
+   - Repairs: "paid $X for repairs"
+
+7. ✅ COMPLETED - When backend/scripts/resetGame.js runs, all frontend clients are disconnected and redirected to login screen.

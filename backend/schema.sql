@@ -7,13 +7,14 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed data for 5 hardcoded users
+-- Seed data for 6 users
 INSERT INTO users (username, password_hash, token_type) VALUES
-('player1', '$2b$10$M9Sn7PskjWvamaLGcIzoB.ESXGdp8W.KEQ1pssVw2vYSNP7/RAUwK', 'car'),
-('player2', '$2b$10$uWv.yLiSybKZkzavMfvSFOMTjYrsx14yB.GY5ZmfkFIM5/kLU0xO6', 'hat'),
-('player3', '$2b$10$TOhKjw./7CEw5o0c4m5NDOcHcvckiLKXHoBIFb9KFJbqd0WaqbxYS', 'dog'),
-('player4', '$2b$10$r66bH87th2MGi6iy0JBEdOzB7ITTEs/YTj2xqym9ChmCc0vAZuB1C', 'ship'),
-('player5', '$2b$10$tgeNudsDqlgwSFDvcvRKu.luzFtNZhtFe/nQ5.MT5iukn8.I0pl9W', 'thimble');
+('max', '$2b$10$jnXGoa.8Qpsfr/PvTghnmuEbIzN2BkiOo/dv9JoTMlb6dcXFSDpQu', 'car'),
+('jack', '$2b$10$dEQD1dFv/lvkOZnpyO1JXe0z0xXb8DkVh4am5odK8dHXimT/Ub9Ry', 'hat'),
+('youngeun', '$2b$10$x2oDLOCXtyKLavbdOUxT4uKdJYeGHm8msXfD.omEkGQoEPmXxhJAW', 'dog'),
+('seabass', '$2b$10$JHrxXJYe/xkH9SfbA4xNR.bna2tM3jfnBrVTU5JeuYYWjDw6T/Fdy', 'ship'),
+('jason', '$2b$10$NTUXBZ/8aJ5AjznCX6levOFxkX7ysA3tM8nfKZdnoUNnXCbAk.Bj2', 'thimble'),
+('raymond', '$2b$10$QwwsX3Yy0Ac8FZtrykDQPudXzVqz2wd0evGvQU1Y.lmuh0XcoB7nq', 'shoe');
 
 -- game Table (Single Row)
 CREATE TABLE game (

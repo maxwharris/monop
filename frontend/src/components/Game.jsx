@@ -4,6 +4,198 @@ import Chat from './Chat';
 import useGameStore from '../store/gameStore';
 import { getPlayerColor } from '../utils/playerColors';
 
+// Property Tooltip Component
+const PropertyTooltip = ({ property, visible, position }) => {
+  if (!visible || !property) return null;
+
+  const PROPERTY_COLORS = {
+    brown: '#8B4513',
+    lightblue: '#87CEEB',
+    pink: '#FF1493',
+    orange: '#FFA500',
+    red: '#FF0000',
+    yellow: '#FFFF00',
+    green: '#008000',
+    darkblue: '#00008B',
+    railroad: '#000000',
+    utility: '#FFFFFF'
+  };
+
+  const color = PROPERTY_COLORS[property.color_group] || '#CCCCCC';
+  const formatPrice = (price) => price ? `$${price.toLocaleString()}` : '';
+
+  // Handle rent_values - it might be a string (from DB) or already an array
+  let rentValues = [];
+  try {
+    if (property.rent_values) {
+      rentValues = typeof property.rent_values === 'string'
+        ? JSON.parse(property.rent_values)
+        : property.rent_values;
+    }
+  } catch (error) {
+    console.error('Error parsing rent_values:', error);
+    rentValues = [];
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      left: `${position.x}px`,
+      top: `${position.y}px`,
+      background: 'linear-gradient(135deg, #1E5742 0%, #0A3D2C 100%)',
+      border: '3px solid #D4AF37',
+      borderRadius: '12px',
+      padding: '1rem',
+      minWidth: '250px',
+      maxWidth: '300px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
+      color: 'white',
+      fontSize: '14px',
+      fontFamily: 'Inter, sans-serif',
+      zIndex: 10000,
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        borderBottom: property.color_group ? `4px solid ${color}` : 'none',
+        paddingBottom: '0.5rem',
+        marginBottom: '0.5rem',
+      }}>
+        <div style={{
+          fontSize: '16px',
+          fontWeight: 'bold',
+          color: '#D4AF37',
+          marginBottom: '0.25rem'
+        }}>
+          {property.name}
+        </div>
+        {property.color_group && (
+          <div style={{
+            fontSize: '11px',
+            color: '#9DBFAE',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
+            {property.color_group.replace('lightblue', 'light blue').replace('darkblue', 'dark blue')} property
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '0.5rem' }}>
+        {/* Price */}
+        {property.purchase_price && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+            <span style={{ color: '#D0E9DC' }}>Price:</span>
+            <span style={{ fontWeight: 'bold', color: '#FFD700' }}>{formatPrice(property.purchase_price)}</span>
+          </div>
+        )}
+
+        {/* Rent Information */}
+        {property.rent_base !== undefined && rentValues.length > 0 && (
+          <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{
+              fontSize: '12px',
+              color: '#9DBFAE',
+              marginBottom: '0.25rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              {property.property_type === 'railroad' ? 'Rent (by number owned):' :
+               property.property_type === 'utility' ? 'Rent (multiplier × dice):' :
+               'Rent:'}
+            </div>
+
+            {property.property_type === 'railroad' ? (
+              rentValues.slice(0, 4).map((rent, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                  <span style={{ color: '#D0E9DC', fontSize: '12px' }}>
+                    {idx + 1} Railroad{idx > 0 ? 's' : ''}:
+                  </span>
+                  <span>{formatPrice(rent)}</span>
+                </div>
+              ))
+            ) : property.property_type === 'utility' ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                  <span style={{ color: '#D0E9DC', fontSize: '12px' }}>1 Utility:</span>
+                  <span>{rentValues[0]}× dice</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                  <span style={{ color: '#D0E9DC', fontSize: '12px' }}>Both Utilities:</span>
+                  <span>{rentValues[1]}× dice</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                  <span style={{ color: '#D0E9DC', fontSize: '12px' }}>Base:</span>
+                  <span style={{ fontWeight: 'bold' }}>{formatPrice(property.rent_base)}</span>
+                </div>
+                {rentValues.length > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                    <span style={{ color: '#D0E9DC', fontSize: '12px' }}>With Set:</span>
+                    <span>{formatPrice(rentValues[0])}</span>
+                  </div>
+                )}
+                {rentValues.slice(1, 6).map((rent, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem', paddingLeft: '0.5rem' }}>
+                    <span style={{ color: '#D0E9DC', fontSize: '12px' }}>
+                      {idx < 4 ? `${idx + 1} House${idx > 0 ? 's' : ''}:` : 'Hotel:'}
+                    </span>
+                    <span>{formatPrice(rent)}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Mortgage Value */}
+        {property.mortgage_value && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+            <span style={{ color: '#D0E9DC' }}>Mortgage:</span>
+            <span>{formatPrice(property.mortgage_value)}</span>
+          </div>
+        )}
+
+        {/* House Cost */}
+        {property.house_cost && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+            <span style={{ color: '#D0E9DC' }}>House Cost:</span>
+            <span>{formatPrice(property.house_cost)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Current Development */}
+      <div style={{
+        marginTop: '0.5rem',
+        paddingTop: '0.5rem',
+        borderTop: '1px solid rgba(255,255,255,0.2)',
+      }}>
+        {property.property_type === 'railroad' || property.property_type === 'utility' ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#D0E9DC' }}>Number Owned:</span>
+            <span style={{ fontWeight: 'bold', color: '#999' }}>--</span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#D0E9DC' }}>Development:</span>
+            <span style={{ fontWeight: 'bold', color: property.house_count > 0 ? '#4CAF50' : '#999' }}>
+              {property.house_count === 5 ? '🏨 Hotel' : property.house_count > 0 ? `🏠 ${property.house_count} House${property.house_count > 1 ? 's' : ''}` : 'None'}
+            </span>
+          </div>
+        )}
+        {property.is_mortgaged && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
+            <span style={{ color: '#D0E9DC' }}>Status:</span>
+            <span style={{ fontWeight: 'bold', color: '#FFA500' }}>Mortgaged 💤</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Game = () => {
   const {
     user,
@@ -19,6 +211,7 @@ const Game = () => {
     landedSpace,
     purchasedProperty,
     drawnCard,
+    isSpectator,
     joinGame,
     rollDice,
     buyProperty,
@@ -33,10 +226,12 @@ const Game = () => {
   const [showLandedPopup, setShowLandedPopup] = useState(false);
   const [showPurchasePopup, setShowPurchasePopup] = useState(false);
   const [showCardPopup, setShowCardPopup] = useState(false);
+  const [hoveredProperty, setHoveredProperty] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    // Auto-join game when component mounts (only once)
-    if (!hasJoinedRef.current && user) {
+    // Auto-join game when component mounts (only once) - skip if spectator
+    if (!hasJoinedRef.current && user && !isSpectator) {
       hasJoinedRef.current = true;
       joinGame();
     }
@@ -122,6 +317,13 @@ const Game = () => {
 
   return (
     <div style={styles.container}>
+      {/* Property Tooltip */}
+      <PropertyTooltip
+        property={hoveredProperty}
+        visible={hoveredProperty !== null}
+        position={tooltipPosition}
+      />
+
       {/* Header */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
@@ -130,8 +332,10 @@ const Game = () => {
         </div>
         <div style={styles.headerRight}>
           <div style={styles.userInfo}>
-            <span style={styles.username}>{user?.username}</span>
-            {myPlayer && (
+            <span style={styles.username}>
+              {isSpectator ? '👁 Spectator' : user?.username}
+            </span>
+            {myPlayer && !isSpectator && (
               <div style={styles.moneyBadge}>
                 <span style={styles.moneyIcon}>💰</span>
                 <span style={styles.moneyAmount}>${myPlayer.money.toLocaleString()}</span>
@@ -225,22 +429,80 @@ const Game = () => {
                       <div style={styles.propertiesList}>
                         {properties
                           .filter(p => p.owner_id === player.id)
-                          .map(property => (
-                            <div key={property.id} style={styles.propertyItem}>
-                              <div style={styles.propertyName}>{property.name}</div>
-                              <div style={styles.propertyDetails}>
-                                <span style={styles.propertyPrice}>${property.purchase_price}</span>
-                                {property.house_count > 0 && (
-                                  <span style={styles.propertyHouses}>
-                                    {property.house_count === 5 ? '🏨' : `${'🏠'.repeat(property.house_count)}`}
-                                  </span>
+                          .map(property => {
+                            // Get property color
+                            const PROPERTY_COLORS = {
+                              brown: '#8B4513',
+                              lightblue: '#87CEEB',
+                              pink: '#FF1493',
+                              orange: '#FFA500',
+                              red: '#FF0000',
+                              yellow: '#FFFF00',
+                              green: '#008000',
+                              darkblue: '#00008B',
+                              railroad: '#000000',
+                              utility: '#FFFFFF'
+                            };
+                            const propertyColor = PROPERTY_COLORS[property.color_group] || null;
+
+                            return (
+                              <div
+                                key={property.id}
+                                style={{
+                                  ...styles.propertyItem,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  cursor: 'pointer'
+                                }}
+                                onMouseEnter={(e) => {
+                                  setHoveredProperty(property);
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setTooltipPosition({
+                                    x: rect.right + 10,
+                                    y: rect.top
+                                  });
+                                }}
+                                onMouseLeave={() => setHoveredProperty(null)}
+                              >
+                                {/* Color indicator */}
+                                {propertyColor && (
+                                  <div style={{
+                                    width: '4px',
+                                    height: '100%',
+                                    minHeight: '40px',
+                                    background: propertyColor,
+                                    borderRadius: '2px',
+                                    flexShrink: 0
+                                  }} />
                                 )}
-                                {property.is_mortgaged && (
-                                  <span style={styles.mortgagedBadge}>💤</span>
-                                )}
+                                <div style={{ flex: 1 }}>
+                                  <div style={styles.propertyName}>{property.name}</div>
+                                  <div style={styles.propertyDetails}>
+                                    {property.color_group && (
+                                      <span style={{
+                                        color: '#9DBFAE',
+                                        fontSize: '0.7rem',
+                                        textTransform: 'capitalize',
+                                        marginRight: '0.5rem'
+                                      }}>
+                                        {property.color_group.replace('lightblue', 'light blue').replace('darkblue', 'dark blue')}
+                                      </span>
+                                    )}
+                                    <span style={styles.propertyPrice}>${property.purchase_price}</span>
+                                    {property.house_count > 0 && (
+                                      <span style={styles.propertyHouses}>
+                                        {property.house_count === 5 ? '🏨' : `${'🏠'.repeat(property.house_count)}`}
+                                      </span>
+                                    )}
+                                    {property.is_mortgaged && (
+                                      <span style={styles.mortgagedBadge}>💤</span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         {properties.filter(p => p.owner_id === player.id).length === 0 && (
                           <div style={styles.noProperties}>No properties owned</div>
                         )}
@@ -253,45 +515,47 @@ const Game = () => {
             </div>
           </div>
 
-          {/* Actions Section */}
-          <div style={styles.section}>
-            <h2 style={styles.sectionTitle}>
-              <span style={styles.sectionIcon}>🎮</span>
-              Actions
-            </h2>
-            <div style={styles.actionButtons}>
-              <button
-                onClick={handleRollDice}
-                disabled={!isMyTurn || !canRollAgain}
-                style={styles.actionButton}
-                title={!canRollAgain ? "Already rolled this turn" : ""}
-              >
-                <span style={styles.actionIcon}>🎲</span>
-                Roll Dice
-              </button>
+          {/* Actions Section - Hidden for spectators */}
+          {!isSpectator && (
+            <div style={styles.section}>
+              <h2 style={styles.sectionTitle}>
+                <span style={styles.sectionIcon}>🎮</span>
+                Actions
+              </h2>
+              <div style={styles.actionButtons}>
+                <button
+                  onClick={handleRollDice}
+                  disabled={!isMyTurn || !canRollAgain}
+                  style={styles.actionButton}
+                  title={!canRollAgain ? "Already rolled this turn" : ""}
+                >
+                  <span style={styles.actionIcon}>🎲</span>
+                  Roll Dice
+                </button>
 
-              <button
-                onClick={handleBuyProperty}
-                disabled={!isMyTurn || !canBuyCurrentProperty}
-                className="secondary"
-                style={styles.actionButton}
-                title={!canBuyCurrentProperty ? "Property not available for purchase" : ""}
-              >
-                <span style={styles.actionIcon}>🏠</span>
-                Buy Property
-              </button>
+                <button
+                  onClick={handleBuyProperty}
+                  disabled={!isMyTurn || !canBuyCurrentProperty}
+                  className="secondary"
+                  style={styles.actionButton}
+                  title={!canBuyCurrentProperty ? "Property not available for purchase" : ""}
+                >
+                  <span style={styles.actionIcon}>🏠</span>
+                  Buy Property
+                </button>
 
-              <button
-                onClick={handleEndTurn}
-                disabled={!isMyTurn}
-                className="outline"
-                style={styles.actionButton}
-              >
-                <span style={styles.actionIcon}>⏭</span>
-                End Turn
-              </button>
+                <button
+                  onClick={handleEndTurn}
+                  disabled={!isMyTurn}
+                  className="outline"
+                  style={styles.actionButton}
+                >
+                  <span style={styles.actionIcon}>⏭</span>
+                  End Turn
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Dice Display */}
           {currentDiceRoll && (

@@ -1,12 +1,19 @@
 const bcrypt = require('bcryptjs');
 
-const passwords = ['password1', 'password2', 'password3', 'password4', 'password5'];
+const users = [
+  { username: 'max', password: 'max' },
+  { username: 'jack', password: 'jack' },
+  { username: 'youngeun', password: 'youngeun' },
+  { username: 'seabass', password: 'seabass' },
+  { username: 'jason', password: 'jason' },
+  { username: 'raymond', password: 'raymond' }
+];
 
-console.log('Generating password hashes for 5 players...\n');
+console.log('Generating password hashes for 6 players...\n');
 
-passwords.forEach((pwd, idx) => {
-  const hash = bcrypt.hashSync(pwd, 10);
-  console.log(`Player ${idx + 1} (${pwd}):`);
+users.forEach((user, idx) => {
+  const hash = bcrypt.hashSync(user.password, 10);
+  console.log(`${user.username} (password: ${user.password}):`);
   console.log(`  ${hash}\n`);
 });
 

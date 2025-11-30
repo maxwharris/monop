@@ -8,8 +8,13 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://192.168.1.165:5173",
-    methods: ["GET", "POST"]
+    origin: [
+      process.env.FRONTEND_URL || "http://mp.maxharris.io",
+      "http://localhost:5173",
+      "http://mp.maxharris.io:80"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -68,6 +73,12 @@ io.on('connection', (socket) => {
     } else {
       console.log('User disconnected:', socket.id);
     }
+  });
+
+  // Handle game reset from admin script
+  socket.on('admin:game_reset', () => {
+    console.log('Game reset requested - broadcasting to all clients');
+    io.emit('game:reset');
   });
 });
 

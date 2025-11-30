@@ -53,6 +53,29 @@ router.post('/logout', (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
+router.post('/spectate', (req, res) => {
+  try {
+    // Generate JWT token for spectator (ID 0)
+    const token = jwt.sign(
+      { id: 0, username: 'Spectator', isSpectator: true },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: 0,
+        username: 'Spectator',
+        token_type: 'spectator'
+      }
+    });
+  } catch (error) {
+    console.error('Spectate error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.get('/verify', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) {

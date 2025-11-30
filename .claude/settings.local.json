@@ -14,7 +14,10 @@
       "Bash(node scripts/resetGame.js:*)",
       "Bash(timeout /t 2 /nobreak)",
       "Bash(node -e:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(netsh advfirewall firewall show rule:*)",
+      "Bash(netsh advfirewall firewall add rule:*)"
     ],
     "deny": [],
     "ask": []

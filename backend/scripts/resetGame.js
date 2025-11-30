@@ -5,6 +5,7 @@
  */
 
 const pool = require('../db');
+const io = require('socket.io-client');
 
 async function resetGame() {
   try {
@@ -38,8 +39,35 @@ async function resetGame() {
     `);
     console.log('✓ Reset game state to lobby');
 
-    console.log('\n🎮 Game reset complete! Players can join the lobby.');
-    process.exit(0);
+    // Notify all connected clients to return to login
+    try {
+      const socket = io('http://localhost:3001');
+      socket.on('connect', () => {
+        socket.emit('admin:game_reset');
+        console.log('✓ Broadcast game reset to all clients');
+        socket.disconnect();
+        console.log('\n🎮 Game reset complete! Players can join the lobby.');
+        process.exit(0);
+      });
+
+      socket.on('connect_error', (error) => {
+        console.log('⚠️  Could not broadcast to clients (server may not be running)');
+        console.log('\n🎮 Game reset complete! Players can join the lobby.');
+        process.exit(0);
+      });
+
+      // Timeout after 2 seconds if no connection
+      setTimeout(() => {
+        socket.disconnect();
+        console.log('⚠️  Socket connection timeout');
+        console.log('\n🎮 Game reset complete! Players can join the lobby.');
+        process.exit(0);
+      }, 2000);
+    } catch (error) {
+      console.log('⚠️  Could not broadcast to clients:', error.message);
+      console.log('\n🎮 Game reset complete! Players can join the lobby.');
+      process.exit(0);
+    }
   } catch (error) {
     console.error('Error resetting game:', error);
     process.exit(1);

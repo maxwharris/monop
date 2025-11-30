@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import socketService from '../services/socket';
 
-// Backend API URL - use environment variable or default to local IP
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://192.168.1.165:3001';
+// Backend API URL - use environment variable or default to domain
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://mp.maxharris.io:3001';
 
 const useGameStore = create((set, get) => ({
   // Authentication
   user: null,
   token: null,
+  isSpectator: false,
 
   // Game state
   game: null,
@@ -28,6 +29,8 @@ const useGameStore = create((set, get) => ({
 
   // Actions
   setUser: (user) => set({ user }),
+
+  setSpectatorMode: (isSpectator) => set({ isSpectator }),
 
   setToken: (token) => {
     localStorage.setItem('token', token);
@@ -55,7 +58,7 @@ const useGameStore = create((set, get) => ({
 
     socketService.disconnect();
     localStorage.removeItem('token');
-    set({ user: null, token: null, isConnected: false, game: null, players: [], myPlayer: null });
+    set({ user: null, token: null, isSpectator: false, isConnected: false, game: null, players: [], myPlayer: null });
   },
 
   // Connect to WebSocket and set up listeners
@@ -103,20 +106,64 @@ const useGameStore = create((set, get) => ({
         // Set canRollAgain based on backend response (for the player who rolled)
         canRollAgain: result.user_id === get().user?.id ? result.canRollAgain : get().canRollAgain
       });
-      get().addToGameLog(`Rolled ${result.roll.die1} and ${result.roll.die2} (Total: ${result.roll.total})`);
 
-      // Check if a card was drawn
-      if (result.landingResult?.action === 'drew_card') {
-        const deckName = result.landingResult.deckType === 'chance' ? 'Chance' : 'Community Chest';
-        get().addToGameLog(`${result.landingResult.player.username} drew ${deckName}: "${result.landingResult.card.text}"`);
+      const roller = get().players.find(p => p.user_id === result.user_id);
+      const rollerName = roller?.username || 'Player';
 
-        // Clear first to ensure useEffect triggers
-        set({ drawnCard: null });
+      get().addToGameLog(`${rollerName} rolled ${result.roll.die1} and ${result.roll.die2} (Total: ${result.roll.total})`);
 
-        // Set drawn card to show popup (small delay to ensure state change is detected)
-        setTimeout(() => {
-          set({ drawnCard: result.landingResult });
-        }, 10);
+      // Log money changes from passing GO
+      if (result.moveResult?.passedGo) {
+        get().addToGameLog(`💰 ${rollerName} passed GO and collected $200`);
+      }
+
+      // Log landing results with money transactions
+      if (result.landingResult) {
+        const landing = result.landingResult;
+
+        if (landing.action === 'paid_rent') {
+          get().addToGameLog(`💸 ${rollerName} paid $${landing.amount} rent to ${landing.owner.username} for ${landing.property.name}`);
+        } else if (landing.action === 'paid_tax') {
+          const taxType = landing.type === 'income' ? 'Income Tax' : 'Luxury Tax';
+          get().addToGameLog(`💸 ${rollerName} paid $${landing.amount} ${taxType}`);
+        } else if (landing.action === 'drew_card') {
+          const deckName = landing.deckType === 'chance' ? 'Chance' : 'Community Chest';
+          get().addToGameLog(`🎴 ${landing.player.username} drew ${deckName}: "${landing.card.text}"`);
+
+          // Log card effects
+          if (landing.effects && landing.effects.length > 0) {
+            landing.effects.forEach(effect => {
+              if (effect.type === 'money_change') {
+                const verb = effect.amount > 0 ? 'received' : 'paid';
+                const emoji = effect.amount > 0 ? '💰' : '💸';
+                get().addToGameLog(`${emoji} ${landing.player.username} ${verb} $${Math.abs(effect.amount)}`);
+              } else if (effect.type === 'moved') {
+                get().addToGameLog(`🚀 ${landing.player.username} moved to position ${effect.newPosition}`);
+                if (effect.passedGo) {
+                  get().addToGameLog(`💰 ${landing.player.username} passed GO and collected $200`);
+                }
+              } else if (effect.type === 'paid_all') {
+                get().addToGameLog(`💸 ${landing.player.username} paid $${effect.totalAmount} to ${effect.count} player(s)`);
+              } else if (effect.type === 'collected_from_all') {
+                get().addToGameLog(`💰 ${landing.player.username} collected $${effect.totalAmount} from ${effect.count} player(s)`);
+              } else if (effect.type === 'repairs') {
+                get().addToGameLog(`🔨 ${landing.player.username} paid $${effect.totalCost} for repairs (${effect.houses} house(s), ${effect.hotels} hotel(s))`);
+              } else if (effect.type === 'sent_to_jail') {
+                get().addToGameLog(`🚓 ${landing.player.username} was sent to jail`);
+              }
+            });
+          }
+
+          // Clear first to ensure useEffect triggers
+          set({ drawnCard: null });
+
+          // Set drawn card to show popup (small delay to ensure state change is detected)
+          setTimeout(() => {
+            set({ drawnCard: landing });
+          }, 10);
+        } else if (landing.action === 'sent_to_jail') {
+          get().addToGameLog(`🚓 ${rollerName} was sent to jail (${landing.reason.replace('_', ' ')})`);
+        }
       }
 
       // Set landed space after refreshing game state - only for the player who rolled
@@ -133,7 +180,7 @@ const useGameStore = create((set, get) => ({
     });
 
     socket.on('game:property_purchased', (result) => {
-      get().addToGameLog(`${result.property.name} purchased by ${result.player.username}!`);
+      get().addToGameLog(`🏠 ${result.player.username} purchased ${result.property.name} for $${result.property.purchase_price}`);
 
       // Clear first to ensure useEffect triggers
       set({ purchasedProperty: null });
@@ -193,11 +240,38 @@ const useGameStore = create((set, get) => ({
       get().addToGameLog('Game has started!');
       get().refreshGameState();
     });
+
+    socket.on('game:reset', () => {
+      console.log('Game has been reset - returning to login');
+      get().addToGameLog('⚠️ Game has been reset by administrator');
+      // Disconnect socket and logout
+      socketService.disconnect();
+      localStorage.removeItem('token');
+      set({
+        user: null,
+        token: null,
+        isSpectator: false,
+        isConnected: false,
+        game: null,
+        players: [],
+        myPlayer: null,
+        properties: [],
+        chatMessages: [],
+        gameLog: []
+      });
+      // Redirect to login will happen automatically when user becomes null
+    });
   },
 
   updateMyTurnStatus: () => {
-    const { user, game, players } = get();
+    const { user, game, players, isSpectator } = get();
     if (!user || !game || !players.length) return;
+
+    // Spectators don't have a player
+    if (isSpectator) {
+      set({ myPlayer: null, isMyTurn: false });
+      return;
+    }
 
     const myPlayer = players.find(p => p.user_id === user.id);
     const isMyTurn = game.current_turn_user_id === user.id;

@@ -27,11 +27,16 @@ class SocketService {
       this.socket.disconnect();
     }
 
-    // Use environment variable or fallback to localhost
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://192.168.1.165:3001';
+    // Use environment variable or fallback to domain
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://mp.maxharris.io:3001';
 
     this.socket = io(backendUrl, {
-      auth: { token }
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5
     });
 
     this.socket.on('connect', () => {

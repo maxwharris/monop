@@ -3,9 +3,10 @@ import useGameStore from './store/gameStore';
 import Login from './components/Login';
 import Lobby from './components/Lobby';
 import Game from './components/Game';
+import SpectatorView from './components/SpectatorView';
 
 function App() {
-  const { user, game, initialize } = useGameStore();
+  const { user, game, isSpectator, initialize } = useGameStore();
 
   useEffect(() => {
     initialize();
@@ -17,6 +18,15 @@ function App() {
     return (
       <div className="App">
         <Login />
+      </div>
+    );
+  }
+
+  // Show spectator view if in spectator mode
+  if (isSpectator) {
+    return (
+      <div className="App">
+        <SpectatorView />
       </div>
     );
   }
