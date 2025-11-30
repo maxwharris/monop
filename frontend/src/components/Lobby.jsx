@@ -2,12 +2,18 @@ import { useState, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
 
 const Lobby = () => {
-  const { user, players, game, toggleReady, startGame } = useGameStore();
+  const { user, players, game, toggleReady, startGame, logout, removePlayer } = useGameStore();
   const [myPlayer, setMyPlayer] = useState(null);
+  const [isHost, setIsHost] = useState(false);
 
   useEffect(() => {
     const player = players.find(p => p.user_id === user?.id);
     setMyPlayer(player);
+
+    // First player (lowest turn order) is the host
+    const sortedPlayers = [...players].sort((a, b) => a.turn_order - b.turn_order);
+    const host = sortedPlayers[0];
+    setIsHost(host?.user_id === user?.id);
   }, [players, user]);
 
   const readyPlayers = players.filter(p => p.ready_to_start);
@@ -26,6 +32,22 @@ const Lobby = () => {
       await startGame();
     } catch (error) {
       console.error('Failed to start game:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const handleRemovePlayer = async (playerId) => {
+    if (!window.confirm('Are you sure you want to remove this player?')) {
+      return;
+    }
+    try {
+      await removePlayer(playerId);
+    } catch (error) {
+      console.error('Failed to remove player:', error);
+      alert(error.message || 'Failed to remove player');
     }
   };
 
@@ -49,7 +71,7 @@ const Lobby = () => {
 
           <div style={styles.playersSection}>
             <h3 style={styles.sectionTitle}>
-              Players ({players.length})
+              Players ({players.length}) {isHost && <span style={styles.hostBadge}>👑 You are the host</span>}
             </h3>
             <div style={styles.playersList}>
               {players.map(player => (
@@ -67,11 +89,22 @@ const Lobby = () => {
                     </span>
                     <span style={styles.playerToken}>{getTokenEmoji(player.token_type)}</span>
                   </div>
-                  {player.ready_to_start ? (
-                    <span style={styles.readyBadge}>✓ Ready</span>
-                  ) : (
-                    <span style={styles.notReadyBadge}>Waiting...</span>
-                  )}
+                  <div style={styles.playerActions}>
+                    {player.ready_to_start ? (
+                      <span style={styles.readyBadge}>✓ Ready</span>
+                    ) : (
+                      <span style={styles.notReadyBadge}>Waiting...</span>
+                    )}
+                    {isHost && player.user_id !== user?.id && (
+                      <button
+                        onClick={() => handleRemovePlayer(player.id)}
+                        style={styles.removeButton}
+                        title="Remove player"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -84,15 +117,24 @@ const Lobby = () => {
               </div>
             )}
 
-            <button
-              onClick={handleToggleReady}
-              style={{
-                ...styles.readyButton,
-                ...(myPlayer?.ready_to_start ? styles.readyButtonActive : {})
-              }}
-            >
-              {myPlayer?.ready_to_start ? '✓ Ready' : 'Ready Up'}
-            </button>
+            <div style={styles.buttonRow}>
+              <button
+                onClick={handleLogout}
+                style={styles.logoutButton}
+              >
+                ← Logout
+              </button>
+
+              <button
+                onClick={handleToggleReady}
+                style={{
+                  ...styles.readyButton,
+                  ...(myPlayer?.ready_to_start ? styles.readyButtonActive : {})
+                }}
+              >
+                {myPlayer?.ready_to_start ? '✓ Ready' : 'Ready Up'}
+              </button>
+            </div>
 
             {allReady && (
               <button
@@ -192,6 +234,16 @@ const styles = {
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '1rem',
+  },
+  hostBadge: {
+    fontSize: '0.9rem',
+    color: 'var(--monopoly-gold)',
+    fontWeight: '600',
+    textTransform: 'none',
+    letterSpacing: 'normal',
   },
   playersList: {
     display: 'flex',
@@ -225,6 +277,11 @@ const styles = {
   playerToken: {
     fontSize: '1.5rem',
   },
+  playerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+  },
   readyBadge: {
     padding: '0.5rem 1rem',
     background: 'var(--monopoly-green)',
@@ -239,6 +296,17 @@ const styles = {
     color: 'var(--text-muted)',
     borderRadius: 'var(--radius-md)',
     fontSize: '0.9rem',
+  },
+  removeButton: {
+    padding: '0.5rem 0.75rem',
+    background: 'rgba(227,30,36,0.2)',
+    border: '2px solid var(--monopoly-red)',
+    borderRadius: 'var(--radius-md)',
+    color: 'var(--monopoly-red)',
+    fontSize: '1rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   actions: {
     display: 'flex',
@@ -256,7 +324,24 @@ const styles = {
     fontSize: '1rem',
     fontWeight: '600',
   },
+  buttonRow: {
+    display: 'flex',
+    gap: '1rem',
+  },
+  logoutButton: {
+    flex: '0 0 auto',
+    padding: '1rem 1.5rem',
+    fontSize: '1rem',
+    fontWeight: '600',
+    borderRadius: 'var(--radius-lg)',
+    border: '2px solid rgba(255,255,255,0.2)',
+    background: 'rgba(0,0,0,0.3)',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+  },
   readyButton: {
+    flex: '1',
     padding: '1rem 2rem',
     fontSize: '1.25rem',
     fontWeight: '700',

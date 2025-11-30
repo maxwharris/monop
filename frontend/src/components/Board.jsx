@@ -2,47 +2,62 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Html } from '@react-three/drei';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import useGameStore from '../store/gameStore';
+import { getPlayerColor } from '../utils/playerColors';
 import * as THREE from 'three';
 
-// Calculate all 40 board positions around the perimeter
+// Calculate all 40 board positions around the perimeter with proper corner spacing
 function calculateBoardPositions() {
   const positions = [];
-  const size = 30; // Increased from 10 to 30
-  const spaceSize = 2.5; // Increased from 0.9 to 2.5
+  const boardSize = 30;
+  const cornerSize = 3.5; // Square corners (3.5 x 3.5)
+  const regularSpaceSize = (boardSize - 2 * cornerSize) / 9; // Calculate space size to fit perfectly
 
   // Bottom row (0-10): Right to left
-  for (let i = 0; i <= 10; i++) {
+  // Position 0 (GO - corner at bottom-right)
+  positions.push([boardSize/2 - cornerSize/2, 0, boardSize/2 - cornerSize/2]);
+
+  // Positions 1-9 (regular spaces)
+  for (let i = 1; i <= 9; i++) {
     positions.push([
-      size / 2 - i * spaceSize,
+      boardSize/2 - cornerSize - (i - 0.5) * regularSpaceSize,
       0,
-      size / 2
+      boardSize/2 - cornerSize/2
     ]);
   }
+
+  // Position 10 (Jail - corner at bottom-left)
+  positions.push([-boardSize/2 + cornerSize/2, 0, boardSize/2 - cornerSize/2]);
 
   // Left side (11-19): Bottom to top
   for (let i = 1; i <= 9; i++) {
     positions.push([
-      -size / 2,
+      -boardSize/2 + cornerSize/2,
       0,
-      size / 2 - i * spaceSize
+      boardSize/2 - cornerSize - (i - 0.5) * regularSpaceSize
     ]);
   }
 
-  // Top row (20-30): Left to right
-  for (let i = 0; i <= 10; i++) {
+  // Position 20 (Free Parking - corner at top-left)
+  positions.push([-boardSize/2 + cornerSize/2, 0, -boardSize/2 + cornerSize/2]);
+
+  // Top row (21-29): Left to right
+  for (let i = 1; i <= 9; i++) {
     positions.push([
-      -size / 2 + i * spaceSize,
+      -boardSize/2 + cornerSize + (i - 0.5) * regularSpaceSize,
       0,
-      -size / 2
+      -boardSize/2 + cornerSize/2
     ]);
   }
+
+  // Position 30 (Go To Jail - corner at top-right)
+  positions.push([boardSize/2 - cornerSize/2, 0, -boardSize/2 + cornerSize/2]);
 
   // Right side (31-39): Top to bottom
   for (let i = 1; i <= 9; i++) {
     positions.push([
-      size / 2,
+      boardSize/2 - cornerSize/2,
       0,
-      -size / 2 + i * spaceSize
+      -boardSize/2 + cornerSize + (i - 0.5) * regularSpaceSize
     ]);
   }
 
@@ -71,14 +86,34 @@ function PropertySpace({ property, position }) {
   const color = PROPERTY_COLORS[property.color_group] || '#CCCCCC';
   const isOwned = property.owner_id !== null;
   const owner = isOwned ? players.find(p => p.id === property.owner_id) : null;
+  const ownerColor = owner ? getPlayerColor(owner.turn_order).hex : null;
 
   // Determine rotation based on position for text
   const getRotation = () => {
     const pos = property.position_on_board;
-    if (pos >= 0 && pos <= 10) return [0, 0, 0]; // Bottom
-    if (pos >= 11 && pos <= 19) return [0, Math.PI / 2, 0]; // Left
-    if (pos >= 20 && pos <= 30) return [0, Math.PI, 0]; // Top
-    return [0, -Math.PI / 2, 0]; // Right
+    if (pos >= 0 && pos <= 10) return [0, 0, 0]; // Bottom - text faces outward (south)
+    if (pos >= 11 && pos <= 19) return [0, -Math.PI / 2, 0]; // Left - text faces outward (west)
+    if (pos >= 20 && pos <= 30) return [0, Math.PI, 0]; // Top - text faces outward (north)
+    return [0, Math.PI / 2, 0]; // Right - text faces outward (east)
+  };
+
+  // Determine color bar position and rotation based on board position
+  const getColorBarTransform = () => {
+    const pos = property.position_on_board;
+    if (pos >= 0 && pos <= 10) {
+      // Bottom row: bar at bottom (facing outward/south)
+      return { position: [0, 0.31, 0.85], rotation: [0, 0, 0], size: [2.2, 0.3, 0.5] };
+    }
+    if (pos >= 11 && pos <= 19) {
+      // Left side: bar at left (facing outward/west)
+      return { position: [-0.85, 0.31, 0], rotation: [0, Math.PI / 2, 0], size: [2.2, 0.3, 0.5] };
+    }
+    if (pos >= 20 && pos <= 30) {
+      // Top row: bar at top (facing outward/north)
+      return { position: [0, 0.31, -0.85], rotation: [0, 0, 0], size: [2.2, 0.3, 0.5] };
+    }
+    // Right side: bar at right (facing outward/east)
+    return { position: [0.85, 0.31, 0], rotation: [0, Math.PI / 2, 0], size: [2.2, 0.3, 0.5] };
   };
 
   const formatPrice = (price) => {
@@ -95,19 +130,22 @@ function PropertySpace({ property, position }) {
       >
         <boxGeometry args={[2.2, 0.3, 2.2]} />
         <meshStandardMaterial
-          color={hovered ? '#FFFFFF' : (isOwned ? '#FFD700' : '#EFEFEF')}
+          color={hovered ? '#FFFFFF' : (isOwned ? ownerColor : '#EFEFEF')}
           emissive={hovered ? '#666666' : '#000000'}
           emissiveIntensity={hovered ? 0.3 : 0}
         />
       </mesh>
 
       {/* Color strip for properties */}
-      {property.color_group && (
-        <mesh position={[0, 0.31, 0.7]}>
-          <boxGeometry args={[2.2, 0.3, 0.5]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      )}
+      {property.color_group && (() => {
+        const barTransform = getColorBarTransform();
+        return (
+          <mesh position={barTransform.position} rotation={barTransform.rotation}>
+            <boxGeometry args={barTransform.size} />
+            <meshStandardMaterial color={color} />
+          </mesh>
+        );
+      })()}
 
       {/* Property name */}
       <Text
@@ -124,19 +162,32 @@ function PropertySpace({ property, position }) {
       </Text>
 
       {/* Price */}
-      {property.price && (
-        <Text
-          position={[0, 0.32, -0.6]}
-          rotation={[-Math.PI / 2, 0, getRotation()[1]]}
-          fontSize={0.2}
-          color="#1B5E20"
-          anchorX="center"
-          anchorY="middle"
-          fontWeight="bold"
-        >
-          {formatPrice(property.price)}
-        </Text>
-      )}
+      {property.price && (() => {
+        const pos = property.position_on_board;
+        let pricePosition;
+        if (pos >= 0 && pos <= 10) {
+          pricePosition = [0, 0.32, -0.6]; // Bottom row: price near center
+        } else if (pos >= 11 && pos <= 19) {
+          pricePosition = [0.6, 0.32, 0]; // Left side: price near center
+        } else if (pos >= 20 && pos <= 30) {
+          pricePosition = [0, 0.32, 0.6]; // Top row: price near center
+        } else {
+          pricePosition = [-0.6, 0.32, 0]; // Right side: price near center
+        }
+        return (
+          <Text
+            position={pricePosition}
+            rotation={[-Math.PI / 2, 0, getRotation()[1]]}
+            fontSize={0.2}
+            color="#1B5E20"
+            anchorX="center"
+            anchorY="middle"
+            fontWeight="bold"
+          >
+            {formatPrice(property.price)}
+          </Text>
+        );
+      })()}
 
       {/* Hover info card */}
       {hovered && (
@@ -318,10 +369,10 @@ function SpecialSpace({ position, positionNumber }) {
   if (!spaceInfo) return null;
 
   const getRotation = () => {
-    if (positionNumber >= 0 && positionNumber <= 10) return [0, 0, 0];
-    if (positionNumber >= 11 && positionNumber <= 19) return [0, Math.PI / 2, 0];
-    if (positionNumber >= 20 && positionNumber <= 30) return [0, Math.PI, 0];
-    return [0, -Math.PI / 2, 0];
+    if (positionNumber >= 0 && positionNumber <= 10) return [0, 0, 0]; // Bottom - text faces outward (south)
+    if (positionNumber >= 11 && positionNumber <= 19) return [0, -Math.PI / 2, 0]; // Left - text faces outward (west)
+    if (positionNumber >= 20 && positionNumber <= 30) return [0, Math.PI, 0]; // Top - text faces outward (north)
+    return [0, Math.PI / 2, 0]; // Right - text faces outward (east)
   };
 
   const isCorner = spaceInfo.type === 'corner';
@@ -333,7 +384,7 @@ function SpecialSpace({ position, positionNumber }) {
         onPointerOver={() => setHovered(true)}
         onPointerOut={() => setHovered(false)}
       >
-        <boxGeometry args={isCorner ? [2.5, 0.3, 2.5] : [2.2, 0.3, 2.2]} />
+        <boxGeometry args={isCorner ? [3.5, 0.3, 3.5] : [2.2, 0.3, 2.2]} />
         <meshStandardMaterial
           color={hovered ? '#FFFFFF' : spaceInfo.color}
           emissive={hovered ? '#666666' : '#000000'}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Board from './Board';
 import Chat from './Chat';
 import useGameStore from '../store/gameStore';
+import { getPlayerColor } from '../utils/playerColors';
 
 const Game = () => {
   const {
@@ -17,6 +18,7 @@ const Game = () => {
     properties,
     landedSpace,
     purchasedProperty,
+    drawnCard,
     joinGame,
     rollDice,
     buyProperty,
@@ -30,6 +32,7 @@ const Game = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [showLandedPopup, setShowLandedPopup] = useState(false);
   const [showPurchasePopup, setShowPurchasePopup] = useState(false);
+  const [showCardPopup, setShowCardPopup] = useState(false);
 
   useEffect(() => {
     // Auto-join game when component mounts (only once)
@@ -64,6 +67,18 @@ const Game = () => {
     }
   }, [purchasedProperty]);
 
+  // Show popup when card is drawn
+  useEffect(() => {
+    if (drawnCard) {
+      setShowCardPopup(true);
+      // Auto-hide after 6 seconds
+      const timer = setTimeout(() => {
+        setShowCardPopup(false);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [drawnCard]);
+
   const handleRollDice = async () => {
     try {
       await rollDice();
@@ -86,6 +101,16 @@ const Game = () => {
       console.error('Failed to buy property:', error);
     }
   };
+
+  // Check if current property can be purchased
+  const currentProperty = myPlayer ? properties.find(
+    p => p.position_on_board === myPlayer.position
+  ) : null;
+
+  const canBuyCurrentProperty = currentProperty &&
+    currentProperty.property_type !== 'special' &&
+    currentProperty.owner_id === null &&
+    !currentProperty.is_mortgaged;
 
   const handleEndTurn = async () => {
     try {
@@ -114,14 +139,32 @@ const Game = () => {
             )}
           </div>
           {/* Show whose turn it is */}
-          {currentTurnPlayer && (
-            <div style={{
-              ...styles.turnIndicator,
-              ...(isMyTurn ? {} : styles.turnIndicatorOther)
-            }} className={isMyTurn ? "pulse" : ""}>
-              {isMyTurn ? '⭐ YOUR TURN' : `${currentTurnPlayer.username}'s Turn`}
-            </div>
-          )}
+          {currentTurnPlayer && (() => {
+            const turnPlayerColor = getPlayerColor(currentTurnPlayer.turn_order);
+            return (
+              <div style={{
+                ...styles.turnIndicator,
+                ...(isMyTurn ? {} : {
+                  ...styles.turnIndicatorOther,
+                  borderColor: turnPlayerColor.hex,
+                  boxShadow: `0 0 15px ${turnPlayerColor.hex}40`
+                })
+              }} className={isMyTurn ? "pulse" : ""}>
+                {!isMyTurn && (
+                  <div style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    backgroundColor: turnPlayerColor.hex,
+                    display: 'inline-block',
+                    marginRight: '0.5rem',
+                    boxShadow: `0 0 8px ${turnPlayerColor.hex}`
+                  }} />
+                )}
+                {isMyTurn ? '⭐ YOUR TURN' : `${currentTurnPlayer.username}'s Turn`}
+              </div>
+            );
+          })()}
           <button onClick={logout} className="outline" style={styles.logoutButton}>
             Logout
           </button>
@@ -139,19 +182,26 @@ const Game = () => {
               Players
             </h2>
             <div style={styles.playersList}>
-              {players.map((player) => (
+              {players.map((player) => {
+                const playerColor = getPlayerColor(player.turn_order);
+                return (
                 <div
                   key={player.id}
                   style={{
                     ...styles.playerCard,
                     ...(player.user_id === user.id ? styles.playerCardActive : {}),
                     ...(player.is_bankrupt ? styles.playerCardBankrupt : {}),
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    borderLeft: `4px solid ${playerColor.hex}`
                   }}
                   className="fade-in"
                   onClick={() => setSelectedPlayerId(selectedPlayerId === player.id ? null : player.id)}
                 >
                   <div style={styles.playerHeader}>
+                    <div style={{
+                      ...styles.playerColorDot,
+                      backgroundColor: playerColor.hex
+                    }} />
                     <span style={styles.playerToken}>{getTokenEmoji(player.token_type)}</span>
                     <div style={styles.playerInfo}>
                       <div style={styles.playerName}>{player.username}</div>
@@ -198,7 +248,8 @@ const Game = () => {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
 
@@ -221,9 +272,10 @@ const Game = () => {
 
               <button
                 onClick={handleBuyProperty}
-                disabled={!isMyTurn}
+                disabled={!isMyTurn || !canBuyCurrentProperty}
                 className="secondary"
                 style={styles.actionButton}
+                title={!canBuyCurrentProperty ? "Property not available for purchase" : ""}
               >
                 <span style={styles.actionIcon}>🏠</span>
                 Buy Property
@@ -365,6 +417,43 @@ const Game = () => {
                   <span>Price Paid:</span>
                   <span style={styles.popupDetailValue}>${purchasedProperty.property.purchase_price?.toLocaleString()}</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Card Drawn Popup (Chance/Community Chest) */}
+      {showCardPopup && drawnCard && (
+        <div style={styles.popupOverlay} onClick={() => setShowCardPopup(false)}>
+          <div style={{
+            ...styles.popup,
+            borderColor: drawnCard.deckType === 'chance' ? '#FFA500' : '#87CEEB',
+            boxShadow: `0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${drawnCard.deckType === 'chance' ? 'rgba(255,165,0,0.3)' : 'rgba(135,206,235,0.3)'}`
+          }} className="fade-in" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowCardPopup(false)}
+              style={styles.closeButton}
+            >
+              ✕
+            </button>
+            <div style={styles.popupHeader}>
+              <span style={styles.popupIcon}>
+                {drawnCard.deckType === 'chance' ? '🎲' : '🎁'}
+              </span>
+              <h2 style={{
+                ...styles.popupTitle,
+                color: drawnCard.deckType === 'chance' ? '#FFA500' : '#87CEEB'
+              }}>
+                {drawnCard.deckType === 'chance' ? 'CHANCE' : 'COMMUNITY CHEST'}
+              </h2>
+            </div>
+            <div style={styles.popupContent}>
+              <div style={styles.cardDrawnBy}>
+                Drawn by: {drawnCard.player.username}
+              </div>
+              <div style={styles.cardText}>
+                {drawnCard.card.text}
               </div>
             </div>
           </div>
@@ -545,6 +634,13 @@ const styles = {
     alignItems: 'center',
     gap: '0.75rem',
     marginBottom: '0.5rem',
+  },
+  playerColorDot: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,0.3)',
+    boxShadow: '0 0 8px rgba(0,0,0,0.3)',
   },
   playerToken: {
     fontSize: '2rem',
@@ -809,6 +905,24 @@ const styles = {
   popupDetailValue: {
     fontWeight: '700',
     color: 'var(--monopoly-gold)',
+  },
+  cardDrawnBy: {
+    fontSize: '1rem',
+    color: 'var(--text-secondary)',
+    marginBottom: '1.5rem',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cardText: {
+    fontSize: '1.25rem',
+    color: 'var(--text-primary)',
+    lineHeight: '1.6',
+    padding: '1.5rem',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 };
 

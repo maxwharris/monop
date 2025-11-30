@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import socketService from '../services/socket';
 
+// Backend API URL - use environment variable or default to local IP
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://192.168.1.165:3001';
+
 const useGameStore = create((set, get) => ({
   // Authentication
   user: null,
@@ -21,6 +24,7 @@ const useGameStore = create((set, get) => ({
   gameLog: [],
   landedSpace: null, // Track the space a player just landed on
   purchasedProperty: null, // Track when a property is purchased
+  drawnCard: null, // Track when a Chance/Community Chest card is drawn
 
   // Actions
   setUser: (user) => set({ user }),
@@ -30,10 +34,28 @@ const useGameStore = create((set, get) => ({
     set({ token });
   },
 
-  logout: () => {
+  logout: async () => {
+    const { token, game } = get();
+
+    // If in lobby, remove player from game first
+    if (game?.status === 'lobby' && token) {
+      try {
+        await fetch(`${API_URL}/api/game/leave`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      } catch (error) {
+        console.error('Error leaving lobby during logout:', error);
+        // Continue with logout even if leave fails
+      }
+    }
+
     socketService.disconnect();
     localStorage.removeItem('token');
-    set({ user: null, token: null, isConnected: false });
+    set({ user: null, token: null, isConnected: false, game: null, players: [], myPlayer: null });
   },
 
   // Connect to WebSocket and set up listeners
@@ -58,6 +80,9 @@ const useGameStore = create((set, get) => ({
     socket.off('player:connected');
     socket.off('player:disconnected');
     socket.off('player:joined');
+    socket.off('lobby:player_ready');
+    socket.off('lobby:player_left');
+    socket.off('lobby:player_removed');
 
     socket.on('game:state', (gameState) => {
       set({
@@ -79,6 +104,20 @@ const useGameStore = create((set, get) => ({
         canRollAgain: result.user_id === get().user?.id ? result.canRollAgain : get().canRollAgain
       });
       get().addToGameLog(`Rolled ${result.roll.die1} and ${result.roll.die2} (Total: ${result.roll.total})`);
+
+      // Check if a card was drawn
+      if (result.landingResult?.action === 'drew_card') {
+        const deckName = result.landingResult.deckType === 'chance' ? 'Chance' : 'Community Chest';
+        get().addToGameLog(`${result.landingResult.player.username} drew ${deckName}: "${result.landingResult.card.text}"`);
+
+        // Clear first to ensure useEffect triggers
+        set({ drawnCard: null });
+
+        // Set drawn card to show popup (small delay to ensure state change is detected)
+        setTimeout(() => {
+          set({ drawnCard: result.landingResult });
+        }, 10);
+      }
 
       // Set landed space after refreshing game state - only for the player who rolled
       setTimeout(async () => {
@@ -140,6 +179,16 @@ const useGameStore = create((set, get) => ({
       set({ players: data.players });
     });
 
+    socket.on('lobby:player_left', (data) => {
+      get().addToGameLog(`${data.username} left the lobby`);
+      set({ players: data.players });
+    });
+
+    socket.on('lobby:player_removed', (data) => {
+      get().addToGameLog(`${data.removed_player_username} was removed from the lobby`);
+      set({ players: data.players });
+    });
+
     socket.on('game:started', () => {
       get().addToGameLog('Game has started!');
       get().refreshGameState();
@@ -159,7 +208,7 @@ const useGameStore = create((set, get) => ({
   refreshGameState: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game', {
+      const response = await fetch(`${API_URL}/api/game`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const gameState = await response.json();
@@ -188,7 +237,7 @@ const useGameStore = create((set, get) => ({
   joinGame: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game/join', {
+      const response = await fetch(`${API_URL}/api/game/join`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -207,17 +256,30 @@ const useGameStore = create((set, get) => ({
 
   rollDice: async () => {
     const { token } = get();
+
+    // Immediately set canRollAgain to false to prevent double-clicking
+    set({ canRollAgain: false });
+
     try {
-      const response = await fetch('http://localhost:3001/api/game/roll', {
+      const response = await fetch(`${API_URL}/api/game/roll`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
+
+      if (!response.ok) {
+        // If request failed, reset canRollAgain
+        set({ canRollAgain: true });
+        throw new Error('Failed to roll dice');
+      }
+
       return await response.json();
     } catch (error) {
       console.error('Roll dice error:', error);
+      // Reset canRollAgain on error
+      set({ canRollAgain: true });
       throw error;
     }
   },
@@ -225,7 +287,7 @@ const useGameStore = create((set, get) => ({
   buyProperty: async (propertyId) => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game/buy-property', {
+      const response = await fetch(`${API_URL}/api/game/buy-property`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -243,7 +305,7 @@ const useGameStore = create((set, get) => ({
   endTurn: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game/end-turn', {
+      const response = await fetch(`${API_URL}/api/game/end-turn`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -260,7 +322,7 @@ const useGameStore = create((set, get) => ({
   toggleReady: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game/ready', {
+      const response = await fetch(`${API_URL}/api/game/ready`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -278,7 +340,7 @@ const useGameStore = create((set, get) => ({
   startGame: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/game/start', {
+      const response = await fetch(`${API_URL}/api/game/start`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -296,10 +358,61 @@ const useGameStore = create((set, get) => ({
     }
   },
 
+  leaveLobby: async () => {
+    const { token } = get();
+    try {
+      const response = await fetch(`${API_URL}/api/game/leave`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to leave lobby');
+      }
+      // Clear game state and disconnect
+      socketService.disconnect();
+      set({
+        game: null,
+        players: [],
+        myPlayer: null,
+        isConnected: false
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Leave lobby error:', error);
+      throw error;
+    }
+  },
+
+  removePlayer: async (playerId) => {
+    const { token } = get();
+    try {
+      const response = await fetch(`${API_URL}/api/game/remove-player`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ playerId })
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Failed to remove player');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Remove player error:', error);
+      throw error;
+    }
+  },
+
   sendChatMessage: async (message) => {
     const { token } = get();
     try {
-      await fetch('http://localhost:3001/api/chat/send', {
+      await fetch(`${API_URL}/api/chat/send`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -315,7 +428,7 @@ const useGameStore = create((set, get) => ({
   fetchChatMessages: async () => {
     const { token } = get();
     try {
-      const response = await fetch('http://localhost:3001/api/chat/messages', {
+      const response = await fetch(`${API_URL}/api/chat/messages`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const messages = await response.json();
@@ -330,7 +443,7 @@ const useGameStore = create((set, get) => ({
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await fetch('http://localhost:3001/api/auth/verify', {
+        const response = await fetch(`${API_URL}/api/auth/verify`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.ok) {

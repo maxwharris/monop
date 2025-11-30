@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import useGameStore from '../store/gameStore';
 
+// Backend API URL - use environment variable or default to local IP
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://192.168.1.165:3001';
+
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -15,7 +18,7 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +48,7 @@ const Login = () => {
       <div style={styles.loginCard} className="card">
         <div style={styles.header}>
           <h1 style={styles.title}>MONOPOLY</h1>
-          <p style={styles.subtitle}>Place your bet. Win the game.</p>
+          <p style={styles.subtitle}>Capitalism always wins.</p>
         </div>
 
         <form onSubmit={handleSubmit} style={styles.form}>

@@ -201,7 +201,15 @@ class GameController {
         return {
           action: 'drew_card',
           deckType,
-          cardResult
+          card: {
+            type: cardResult.card.type,
+            text: cardResult.card.text
+          },
+          effects: cardResult.effects,
+          player: {
+            id: player.id,
+            username: player.username
+          }
         };
 
       case 'INCOME_TAX':

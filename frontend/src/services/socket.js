@@ -27,7 +27,10 @@ class SocketService {
       this.socket.disconnect();
     }
 
-    this.socket = io('http://localhost:3001', {
+    // Use environment variable or fallback to localhost
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://192.168.1.165:3001';
+
+    this.socket = io(backendUrl, {
       auth: { token }
     });
 

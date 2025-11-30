@@ -211,4 +211,113 @@ router.post('/start', async (req, res) => {
   }
 });
 
+// POST /api/game/leave - Leave the lobby
+router.post('/leave', async (req, res) => {
+  try {
+    const pool = require('../db');
+    const { getGame, getPlayerByUserId, getAllPlayers } = require('../db/queries');
+
+    const game = await getGame();
+    if (game.status !== 'lobby') {
+      return res.status(400).json({ message: 'Cannot leave game in progress' });
+    }
+
+    const player = await getPlayerByUserId(req.user.id);
+    if (!player) {
+      return res.status(404).json({ message: 'Player not found' });
+    }
+
+    // Delete the player
+    await pool.query('DELETE FROM players WHERE id = $1', [player.id]);
+
+    // Reorder remaining players' turn order
+    const remainingPlayers = await getAllPlayers();
+    for (let i = 0; i < remainingPlayers.length; i++) {
+      await pool.query(
+        'UPDATE players SET turn_order = $1 WHERE id = $2',
+        [i + 1, remainingPlayers[i].id]
+      );
+    }
+
+    // Broadcast player left
+    if (req.app.io) {
+      const updatedPlayers = await getAllPlayers();
+      req.app.io.emit('lobby:player_left', {
+        user_id: req.user.id,
+        username: req.user.username,
+        players: updatedPlayers
+      });
+    }
+
+    res.json({ message: 'Left lobby successfully' });
+  } catch (error) {
+    console.error('Leave lobby error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST /api/game/remove-player - Remove a player from lobby (host only)
+router.post('/remove-player', async (req, res) => {
+  try {
+    const pool = require('../db');
+    const { getGame, getAllPlayers } = require('../db/queries');
+
+    const game = await getGame();
+    if (game.status !== 'lobby') {
+      return res.status(400).json({ message: 'Can only remove players in lobby' });
+    }
+
+    const { playerId } = req.body;
+    if (!playerId) {
+      return res.status(400).json({ message: 'Player ID required' });
+    }
+
+    const players = await getAllPlayers();
+
+    // Check if requester is the host (first player who joined)
+    const hostPlayer = players.sort((a, b) => a.turn_order - b.turn_order)[0];
+    if (hostPlayer.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Only the host can remove players' });
+    }
+
+    // Get player to remove
+    const playerToRemove = players.find(p => p.id === playerId);
+    if (!playerToRemove) {
+      return res.status(404).json({ message: 'Player not found' });
+    }
+
+    // Cannot remove yourself
+    if (playerToRemove.user_id === req.user.id) {
+      return res.status(400).json({ message: 'Cannot remove yourself. Use leave instead.' });
+    }
+
+    // Delete the player
+    await pool.query('DELETE FROM players WHERE id = $1', [playerId]);
+
+    // Reorder remaining players' turn order
+    const remainingPlayers = await getAllPlayers();
+    for (let i = 0; i < remainingPlayers.length; i++) {
+      await pool.query(
+        'UPDATE players SET turn_order = $1 WHERE id = $2',
+        [i + 1, remainingPlayers[i].id]
+      );
+    }
+
+    // Broadcast player removed
+    if (req.app.io) {
+      const updatedPlayers = await getAllPlayers();
+      req.app.io.emit('lobby:player_removed', {
+        removed_player_id: playerId,
+        removed_player_username: playerToRemove.username,
+        players: updatedPlayers
+      });
+    }
+
+    res.json({ message: 'Player removed successfully' });
+  } catch (error) {
+    console.error('Remove player error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
